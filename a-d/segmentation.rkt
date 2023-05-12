@@ -3,7 +3,8 @@
 (define-library (image-graph-segmentation)
   (export segment) ; DO NOT CHANGE THIS LINE!
   (import (scheme base)
-           (a-d weighted-graph)) ; Add any necessary library to implement your assignment here.
+          (a-d weighted-graph)
+          (prefix (a-d disjoint-sets optimized) dset:)) ; Add any necessary library to implement your assignment here.
                          ; Only R⁷RS-libraries, sublibraries from the course (a-d) and WPO solutions are allowed! 
 
   (begin
@@ -16,13 +17,15 @@
     (define (segment g)
       (define segmentation (initial-segmentation))
 
+
+
+      (define (edges-with-weights)
+        
+        )
+
       (define (initial-segmentation)
-        (define seg (make-vector (order g) 0))
-        (define size (vector-length seg))
-        (do ([i 0 (+ i 1)])
-          ((= i size) seg)
-          (vector-set! seg i i))
-        (seg))
+        (dset:new (order g)))
+
 
       )
 
