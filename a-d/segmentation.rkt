@@ -15,61 +15,17 @@
     ; ( weighted-graph ➙ pair )
     ; Performs the segmentation of a given weighted graph.
     ; Returns a pair containing the number of components resulting from the segmentation (car)
-    ; and a node-indexed vector (cdr) mapping the nodes to their corresponding component.  
+    ; and a node-indexed vector (cdr) mapping the nodes to their corresponding component.
     (define (segment g)
+
+      ; Setup
       (define k 150)
       (define n (order g))
-      
-        ; Procedure to create the inital segmentation where every node is in its own segment
-      (define (initial-segmentation size)
-        (let ((dsets (dset:new size)))
-          (do ((i 0 (+ i 1))) ((= i size))
-            (hash-set! component-sizes i 1)) ; In de hashtabel gaan we voor elke component de value (de bijhorende size dus) op 1 zetten omdat een component initieel maar uit één node bestaat.
-          dsets))
-
-       (define (sorted-edge-list graph)
-        (define (edge-has-been-visited visited-edges edge) ; We are working with undirected graphs. This means that every time we see an edge (n1 n2 "some-weight"), we have to check that the same edge (n2 n1 "some-weight") doesn't already exist. I did this by keeping track of a hash table that for every node keeps track of all other nodes it is connected to.
-          (let ((n1 (n1 edge))
-                (n2 (n2 edge)))
-            (or (member n2 (hash-ref visited-edges n1 '())) ; If n2 is in the list of visited nodes of n1, this means the edge has been visited.
-                (member n1 (hash-ref visited-edges n2 '()))))) ; If n1 is in the list of visited nodes of n2, this means the edge has been visited.
-        
-        (let ((edges '())
-              (visited-edges (make-hash))) ; make hash is a procedure from racket to create new hashtables. This hashtable is created to keep track of the visited edges (so we are not working with doubles in our undirected graph)
-          (for-each-node graph
-                         (lambda (from)
-                           (for-each-edge graph from
-                                          (lambda (w to)
-                                            (let ((edge (list from to w)))
-                                              (unless (edge-has-been-visited visited-edges edge)
-                                                (hash-update! visited-edges from (lambda (old) (cons to old)) '()) ; We add the "to-node" of the edge to the list of edges the "from-node" is connected to. (the list in the hash-table for element "from-node"). We do this by consing the "to-node" to the existing list in the hash table
-                                                (hash-update! visited-edges to (lambda (old) (cons from old)) '()) ; We add the "from-node" of the edge to the list of edges the "to-node" is connected to. (the list in the hash-table for element "to-node"). We do this by consing the "from-node" to the existing list in the hash table
-                                                (set! edges (cons edge edges))))))) ; If the edge is not visited yet, we add it to the list of edges that will be sorted.
-                         (sort edges (lambda (edge1 edge2)
-                                       (< (weight edge1) (weight edge2)))))))
-
       (define segmentation (initial-segmentation n))
-
-      ; Code to create a sorted list of edges of a graph
-     
-      
       (define sorted-edges (sorted-edge-list g))
       (define component-sizes (make-hash)) ; Hash table that keeps tracks of the sizes of the components so we don't have to recalculate the sizes of the components each time we calculate their internal difference.
       
-      ; Main algorithm logic
-      (for-each
-       (lambda (edge)
-         (let* ((from (n1 edge))
-                (to (n2 edge))
-                (edge-weight (weight edge))
-                (from-component (dset:find segmentation from))
-                (to-component (dset:find segmentation to)))
-           (if (and (not (= from-component to-component)) ; from-component and to-component are different
-                    (< edge-weight (min (component-sum from-component) (component-sum to-component)))) ; edge-weight is smaller than the minimum of (component-sum from-component) and (component-sum to-component)
-               (set! segmentation (merge-components segmentation from-component to-component)))))  
-       sorted-edges)
-
-      (algorithm-result)
+     
 
       (define (component-vector)
         (define node-indexed-vector (make-vector n))
@@ -90,11 +46,39 @@
       (define (algorithm-result)
         (cons number-of-components node-indexed-vector))    
 
+      ; Procedure to create the inital segmentation where every node is in its own segment
+      (define (initial-segmentation size)
+        (let ((dsets (dset:new size)))
+          (do ((i 0 (+ i 1))) ((= i size))
+            (hash-set! component-sizes i 1)) ; In de hashtabel gaan we voor elke component de value (de bijhorende size dus) op 1 zetten omdat een component initieel maar uit één node bestaat.
+          dsets))
+
       ; Abstractions for edges
       (define (n1 edge) (car edge)) ; Abstraction to get node 1 from an edge
       (define (n2 edge) (cadr edge)) ; Abstraction to get node 2 from an edge
       (define (weight edge) (caddr edge)) ; Abstraction to get the weight from an edge
-     
+      
+      ; Code to create a sorted list of edges of a graph
+      (define (sorted-edge-list graph)
+        (define (edge-has-been-visited visited-edges edge) ; We are working with undirected graphs. This means that every time we see an edge (n1 n2 "some-weight"), we have to check that the same edge (n2 n1 "some-weight") doesn't already exist. I did this by keeping track of a hash table that for every node keeps track of all other nodes it is connected to.
+          (let ((n1 (n1 edge))
+                (n2 (n2 edge)))
+            (or (member n2 (hash-ref visited-edges n1 '())) ; If n2 is in the list of visited nodes of n1, this means the edge has been visited.
+                (member n1 (hash-ref visited-edges n2 '()))))) ; If n1 is in the list of visited nodes of n2, this means the edge has been visited.
+        
+        (let ((edges '())
+              (visited-edges (make-hash))) ; make hash is a procedure from racket to create new hashtables. This hashtable is created to keep track of the visited edges (so we are not working with doubles in our undirected graph)
+          (for-each-node graph
+                         (lambda (from)
+                           (for-each-edge graph from
+                                          (lambda (w to)
+                                            (let ((edge (list from to w)))
+                                              (unless (edge-has-been-visited visited-edges edge)
+                                                (hash-update! visited-edges from (lambda (old) (cons to old)) '()) ; We add the "to-node" of the edge to the list of edges the "from-node" is connected to. (the list in the hash-table for element "from-node"). We do this by consing the "to-node" to the existing list in the hash table
+                                                (hash-update! visited-edges to (lambda (old) (cons from old)) '()) ; We add the "from-node" of the edge to the list of edges the "to-node" is connected to. (the list in the hash-table for element "to-node"). We do this by consing the "from-node" to the existing list in the hash table
+                                                (set! edges (cons edge edges))))))) ; If the edge is not visited yet, we add it to the list of edges that will be sorted.
+                         (sort edges (lambda (edge1 edge2)
+                                       (< (weight edge1) (weight edge2)))))))
 
 
 
@@ -128,5 +112,20 @@
          (hash-remove! component-sizes c2)
          (hash-set! component-sizes new-component new-size)
          updated-segmentation))
+
+       ; Main algorithm logic
+      (for-each
+       (lambda (edge)
+         (let* ((from (n1 edge))
+                (to (n2 edge))
+                (edge-weight (weight edge))
+                (from-component (dset:find segmentation from))
+                (to-component (dset:find segmentation to)))
+           (if (and (not (= from-component to-component)) ; from-component and to-component are different
+                    (< edge-weight (min (component-sum from-component) (component-sum to-component)))) ; edge-weight is smaller than the minimum of (component-sum from-component) and (component-sum to-component)
+               (set! segmentation (merge-components segmentation from-component to-component)))))  
+       sorted-edges)
+
+      (algorithm-result)
 )))
     
