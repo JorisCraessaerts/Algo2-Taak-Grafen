@@ -17,14 +17,14 @@
     ; and a node-indexed vector (cdr) mapping the nodes to their corresponding component.
     (define (segment g)
       (define k 150)
+      (define n (order g))
       (define segmentation (initial-segmentation))
       (define sorted-edges (sorted-edge-list g))
 
 
-
+      ; Procedure to create the inital segmentation where every node is in its own segment
       (define (initial-segmentation)
         (dset:new (order g)))
-
 
       ; Abstractions for edges
       (define (n1 edge) (car edge)) ; Abstraction to get node 1 from an edge
