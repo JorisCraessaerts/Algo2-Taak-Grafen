@@ -10,7 +10,6 @@
   ; Only R⁷RS-libraries, sublibraries from the course (a-d) and WPO solutions are allowed! 
 
   (begin
-
     ; segment
     ; ( weighted-graph ➙ pair )
     ; Performs the segmentation of a given weighted graph.
@@ -19,45 +18,28 @@
     (define (segment g)
 
       ; Setup
+      ; -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       (define k 150)
       (define n (order g))
-      (define segmentation (initial-segmentation n))
-      (define sorted-edges (sorted-edge-list g))
       (define component-sizes (make-hash)) ; Hash table that keeps tracks of the sizes of the components so we don't have to recalculate the sizes of the components each time we calculate their internal difference.
+
+      ; Abstractions for edges
+      ; ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 
+      (define (n1 edge) (car edge)) ; Abstraction to get node 1 from an edge
+      (define (n2 edge) (cadr edge)) ; Abstraction to get node 2 from an edge
+      (define (weight edge) (caddr edge)) ; Abstraction to get the weight from an edge
+
       
-     
-
-      (define (component-vector)
-        (define node-indexed-vector (make-vector n))
-        (for-each
-         (lambda (node)
-           (vector-set! node-indexed-vector node (dset:find segmentation node)))
-         (range n))
-        node-indexed-vector)
-     
-      (define (number-of-components)
-        (define component-set (make-hash))
-        (for-each
-         (lambda (node)
-           (hash-set! component-set (vector-ref node-indexed-vector node) #t))
-         (range n))
-        (hash-count component-set))
-
-      (define (algorithm-result)
-        (cons number-of-components node-indexed-vector))    
-
-      ; Procedure to create the inital segmentation where every node is in its own segment
-      (define (initial-segmentation size)
+      ; 1) Step 1: Create initial segmentation where every node is in its own component
+      ;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------      
+      (define (initial-segmentation size) ; Procedure to create the inital segmentation where every node is in its own segment
         (let ((dsets (dset:new size)))
           (do ((i 0 (+ i 1))) ((= i size))
             (hash-set! component-sizes i 1)) ; In de hashtabel gaan we voor elke component de value (de bijhorende size dus) op 1 zetten omdat een component initieel maar uit één node bestaat.
           dsets))
-
-      ; Abstractions for edges
-      (define (n1 edge) (car edge)) ; Abstraction to get node 1 from an edge
-      (define (n2 edge) (cadr edge)) ; Abstraction to get node 2 from an edge
-      (define (weight edge) (caddr edge)) ; Abstraction to get the weight from an edge
       
+      (define segmentation (initial-segmentation n))
+
       ; Code to create a sorted list of edges of a graph
       (define (sorted-edge-list graph)
         (define (edge-has-been-visited visited-edges edge) ; We are working with undirected graphs. This means that every time we see an edge (n1 n2 "some-weight"), we have to check that the same edge (n2 n1 "some-weight") doesn't already exist. I did this by keeping track of a hash table that for every node keeps track of all other nodes it is connected to.
@@ -79,9 +61,11 @@
                                                 (set! edges (cons edge edges))))))) ; If the edge is not visited yet, we add it to the list of edges that will be sorted.
                          (sort edges (lambda (edge1 edge2)
                                        (< (weight edge1) (weight edge2)))))))
+      
+      (define sorted-edges (sorted-edge-list g))
 
-
-
+      ; Some helper procedures to calculate the internal weight of components and to merge 2 components etc...
+      ; -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
       (define (i c)
         (if (= (hash-ref component-sizes c) 1)
             0
@@ -104,16 +88,38 @@
         (+ (i c) (t c)))
 
       ; Code om twee componenten te mergen. Belangrijk hierbij is dat door components te mergen het aantal nodes in deze componenten ook zal veranderen. We moeten dus ook de hashtabel updaten die we gebruiken voor het bijhouden van de sizes van de verschillende componenten.
-     (define (merge-components segmentation c1 c2)
-       (let* ((updated-segmentation (dset:union! segmentation c1 c2))
-              (new-component (dset:find updated-segmentation c1)) ; get the representative of the new component
-              (new-size (+ (hash-ref component-sizes c1 0) (hash-ref component-sizes c2 0))))
-         (hash-remove! component-sizes c1)
-         (hash-remove! component-sizes c2)
-         (hash-set! component-sizes new-component new-size)
-         updated-segmentation))
+      (define (merge-components c1 c2)
+        (let* ((updated-segmentation (dset:union! segmentation c1 c2))
+               (new-component (dset:find updated-segmentation c1)) ; get the representative of the new component
+               (new-size (+ (hash-ref component-sizes c1 0) (hash-ref component-sizes c2 0))))
+          (hash-remove! component-sizes c1)
+          (hash-remove! component-sizes c2)
+          (hash-set! component-sizes new-component new-size)
+          updated-segmentation))
 
-       ; Main algorithm logic
+      ; Some Procedures to create the final result
+      ; -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      (define (component-vector)
+        (define node-indexed-vector (make-vector n))
+        (for-each
+         (lambda (node)
+           (vector-set! node-indexed-vector node (dset:find segmentation node)))
+         (range n))
+        node-indexed-vector)
+     
+      (define (number-of-components)
+        (define component-set (make-hash))
+        (for-each
+         (lambda (node)
+           (hash-set! component-set (vector-ref node-indexed-vector node) #t))
+         (range n))
+        (hash-count component-set))
+
+      (define (algorithm-result)
+        (cons (number-of-components) (component-vector)))    
+
+      ; Main algorithm logic
+      ; -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       (for-each
        (lambda (edge)
          (let* ((from (n1 edge))
@@ -123,9 +129,9 @@
                 (to-component (dset:find segmentation to)))
            (if (and (not (= from-component to-component)) ; from-component and to-component are different
                     (< edge-weight (min (component-sum from-component) (component-sum to-component)))) ; edge-weight is smaller than the minimum of (component-sum from-component) and (component-sum to-component)
-               (set! segmentation (merge-components segmentation from-component to-component)))))  
+               (set! segmentation (merge-components from-component to-component)))))  
        sorted-edges)
 
       (algorithm-result)
-)))
-    
+      )))
+  
